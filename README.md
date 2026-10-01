@@ -1,6 +1,6 @@
 # Oakwick Games
 
-Quick monthly games for staff, hosted on GitHub Pages and installable as an app (PWA). Each month's game gets its own folder under `games/`. One shared Google Sheet runs the access codes and the Top 10.
+Quick monthly games for staff, hosted on GitHub Pages and installable as an app (PWA). Each month's game gets its own folder under `games/`. One shared Google Sheet runs everything else: the player list, the personal invitation links, the Top 10, the end-of-month results emails and the published winning submission.
 
 **October 2026: Line Clear.** Players mark pruning cuts on two trees either side of an 11kV line:
 
@@ -24,7 +24,7 @@ backend/Code.gs                <- paste this into Google Apps Script
 tools/                         Build + test scripts (not needed to run the game)
 ```
 
-You can open the game straight away. Without a scoreboard URL it runs in **demo mode**: there's no access code, and scores only save on that device. That's handy for trying it out.
+You can open the game straight away. Without a scoreboard URL it runs in **demo mode**: no invitation link is needed, and scores only save on that device. That's handy for trying it out.
 
 ---
 
@@ -40,37 +40,50 @@ You can open the game straight away. Without a scoreboard URL it runs in **demo 
 1. In Google Drive, create a new Google Sheet called **Oakwick Games Scoreboard**. Keep it private, because players never see it.
 2. In the sheet, open **Extensions → Apps Script**.
 3. Delete what's in `Code.gs`, paste in the whole of `backend/Code.gs`, and click **Save**.
-4. Pick `setupSheets` in the function drop-down and click **Run**. Google will ask you to authorise it. Choose your account, then **Advanced → Go to project → Allow**. This creates the *Codes* and *Scores* tabs.
+4. Pick `setupSheets` in the function drop-down and click **Run**. Google will ask you to authorise it, including permission to send email as you. Choose your account, then **Advanced → Go to project → Allow**. This creates the *Players*, *Rounds* and *Attempts* tabs.
 5. Click **Deploy → New deployment**, then the gear icon → **Web app**. Set:
    - *Execute as*: **Me**
    - *Who has access*: **Anyone**. The game needs this to reach the sheet, but people still can't see the sheet itself.
 6. Click **Deploy** and copy the **Web app URL** (it ends in `/exec`).
 7. In GitHub, edit `games/2026-10-line-clear/config.js`, paste the URL into `apiUrl: ''`, and commit. The game is now live and the demo banner goes away.
 
-## 3. Issue access codes
+**Which Google account?** Emails are sent from the account that owns the script. A personal Gmail account can send to about **100 recipients a day**, and a Google Workspace (work) account to about 1,500. If you have more than about 100 staff, use a work account. Either way the script keeps track: if it hits the limit, it sends the rest the next day.
+
+## 3. Add players and send the invitations
 
 1. Reload the Google Sheet. An **Oakwick Games** menu appears.
-2. On the **Codes** tab, type each employee's name in column C (*Issued to*), one per row. Leave the other columns blank.
-3. Choose **Oakwick Games → Create codes for names in the Codes sheet**. Each person gets a code like `K7Q4-M2XP`.
-4. Send each person **their own** code privately, with the link to the site.
+2. On the **Rounds** tab, check the row for `2026-10`:
+   - **Game URL** must be your real game address, e.g. `https://<you>.github.io/oakwick-games/games/2026-10-line-clear/`.
+   - **Closes** is the date and time the round ends.
+3. On the **Players** tab, type each person's **Name** and **Email**, one per row.
+4. Choose **Oakwick Games → Create keys for new players**. Each person gets a permanent personal key, which is what their email link uses. To stop someone playing, set **Active** to `N`.
+5. Choose **Oakwick Games → Email this month's invitations**. Everyone gets a "Play now" button that signs them in. There's nothing to type, and the name on the scoreboard comes from the Players tab. Running it again only emails people added since.
+6. **Email a reminder to players who haven't finished** nudges anyone who hasn't submitted yet.
+7. Choose **Oakwick Games → Turn on automatic month-end close** once. From then on, the script checks every hour and closes each round when its closing time passes.
 
-Alternatively, **Create a batch of blank codes…** makes codes you can hand out and fill in names for later.
+New starters: add them to the Players tab, run **Create keys** and **Email this month's invitations** again.
 
 ## How "one attempt" is enforced
 
-- A code is **burned the moment the player presses Start**. The server marks it *Started*, and it can never start again anywhere.
-- If a player refreshes or closes the page, they **carry on where they left off on that same device**, because progress is saved in the browser. They can't restart from scratch.
-- After submitting, the code is marked *Submitted* and any further submissions are rejected.
+- Each player is identified by their personal link. Their attempt starts the moment they press **Start**, and there's only ever one attempt per player per round.
+- **Progress is saved to the server** as they go. If they refresh, change phone or switch to a PC, opening their link again picks up exactly where they left off, with the same cuts and the clock still running. It never starts afresh.
+- After submitting, any further submissions are rejected.
 - **Scores can't be faked.** The browser sends only the list of cuts, and the server re-scores them with the same rules. Any score the browser claims is ignored.
-- The *Scores* tab records the code, the name the player typed and the name the code was issued to, so you can check the winner before paying out.
-- If someone genuinely loses their attempt (e.g. their phone died mid-game), use **Oakwick Games → Reset a code…** to let them start again. Codes that already have a submitted score can't be reset.
+- If an attempt needs wiping (very rare now that progress is saved), use **Oakwick Games → Reset a player's attempt…**. Submitted scores can't be reset.
 
-The one gap is that a player could hand their code to someone else. Because codes are tied to names, you'll see it in the sheet if they do.
+The one gap: if someone forwards their email, whoever opens the link plays as them. The invitation asks them not to.
 
-## During and after the month
+## End of the month
 
-- The Top 10 on the site updates live (it's cached for 30 seconds). Equal scores are split by the faster time.
-- **Oakwick Games → Show current round & Top 3** gives you the winner. Confirm it against the *Scores* tab before awarding the prize.
+When the round closes (automatically at the closing time, or straight away with **Close round & email results now**):
+
+1. No more attempts or saves are accepted.
+2. The winner is recorded in the *Rounds* tab. Equal scores are split by the faster time.
+3. **Everyone who submitted gets an email** saying who won, their own score and finishing position, and the final Top 10. It includes a button to **see the winning cuts**.
+4. The **winning submission is published** on the game page (`…/2026-10-line-clear/?view=winner`). It shows the winner's final image with every cut numbered, the clearances they achieved, and how each cut scored. It's only visible once the round has closed.
+5. A **winner card** also appears on the game's front page, linking to it.
+
+**Oakwick Games → Show current Top 3** shows names and emails at any time, so you can check before the prize is awarded.
 
 ## Scoring (Line Clear)
 
@@ -100,11 +113,11 @@ All thresholds are in `engine.js` (the `K` block near the top), so you can tune 
 
 1. Copy the game folder to a new one, e.g. `games/2026-11-<name>/`, and build the new game there.
 2. Set `round: '2026-11'` (and the labels) in its `config.js`, keeping the same `apiUrl`.
-3. Add it to the home page `index.html`, and move October to "Past games".
+3. Add it to the home page `index.html`, and move October to "Past games". Its winner page stays live.
 4. Add the new folder's files to the `SHELL` list in `sw.js` and change `CACHE` (e.g. `oakwick-2026-11-1`).
 5. In `backend/server.js`, add an entry to `GAMES` for the new round, then run `node tools/build-backend.js` to rebuild `backend/Code.gs`.
 6. In Apps Script, paste the new `Code.gs`, then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. This keeps the same URL.
-7. In the sheet, run **Oakwick Games → Start a new round…** (`2026-11`), then create codes for the new round.
+7. In the sheet, run **Oakwick Games → Start a new round…** (ID, title, game URL), then **Email this month's invitations**. Players keep the same keys, so there's nothing for them to set up.
 
 ## Developer notes
 

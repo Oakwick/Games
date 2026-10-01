@@ -263,3 +263,13 @@ button, .btn, .seg button, .cut-item { touch-action: manipulation; }
 .closeup-tip.show { animation: tipfade 4.5s ease forwards; }
 .closeup-tip:not(.show) { opacity: 0; }
 @keyframes tipfade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
+
+.winner-card { background: linear-gradient(135deg, #fff8e6, #fff); border: 1px solid #f6d58a; }
+.winner-card h2 { font-size: 1.5rem; margin-bottom: .15em; }
+.winner-card .eyebrow { color: #a86b00; opacity: 1; }
+.hello { font-size: 1.1rem; font-weight: 700; color: var(--forest); }
+.res-name { font-size: 1.6rem; margin: 0 0 6px; color: var(--forest); }
+@media (max-width: 860px) {
+  /* on phones, put the "start / your score / winner" cards above the job description */
+  .intro-grid > .start, .intro-grid > .done, .intro-grid > .winner-card, #noKeyCard, #closedCard { order: -1; }
+}

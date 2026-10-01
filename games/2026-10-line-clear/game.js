@@ -22,36 +22,61 @@
   function sortTop(list) {
     return list.slice().sort(function (a, b) { return b.score - a.score || a.secs - b.secs || a.at - b.at; }).slice(0, 10);
   }
+  // Personal key from the invitation link (?k=...). Accounts are permanent, so it's kept across rounds.
+  var PARAMS = new URLSearchParams(location.search);
+  var PKEY = 'oakwick-player-key';
+  var playerKey = null;
+  try { playerKey = localStorage.getItem(PKEY); } catch (e) { }
+  if (PARAMS.get('k')) {
+    playerKey = PARAMS.get('k').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    try { localStorage.setItem(PKEY, playerKey); } catch (e) { }
+    PARAMS.delete('k'); // keep the key out of the address bar, screenshots and history
+    try { history.replaceState(null, '', location.pathname + (PARAMS.toString() ? '?' + PARAMS : '')); } catch (e) { }
+  }
+
+  function getJSON(q) { return fetch(CFG.apiUrl + '?' + q).then(function (r) { return r.json(); }); }
   var API = {
-    post: function (body) {
-      body.round = CFG.round; body.version = LC.VERSION;
-      return fetch(CFG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), redirect: 'follow' })
+    post: function (body, keepalive) {
+      body.round = body.round || CFG.round; body.version = LC.VERSION; body.key = playerKey;
+      return fetch(CFG.apiUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), redirect: 'follow', keepalive: !!keepalive })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     },
-    start: function (code, name) {
-      if (DEMO) return Promise.resolve({ ok: true, token: 'demo-' + Date.now() });
-      return API.post({ action: 'start', code: code, name: name });
+    whoami: function () { return API.post({ action: 'whoami' }); },
+    start: function () {
+      if (DEMO) return Promise.resolve({ ok: true, startedAt: Date.now(), cuts: [] });
+      return API.post({ action: 'start' });
     },
+    save: function (cuts, keepalive) { if (DEMO) return Promise.resolve({ ok: true }); return API.post({ action: 'save', cuts: cuts }, keepalive); },
     submit: function (st) {
       if (DEMO) {
         var res = LC.scoreAll(st.cuts), board = demoBoard();
-        var entry = { name: st.name, score: res.total, secs: Math.round((Date.now() - st.startedAt) / 1000), at: Date.now() };
+        var entry = { name: st.name, score: res.total, secs: Math.round((Date.now() - st.startedAt) / 1000), at: Date.now(), cuts: clean(st.cuts) };
         board.push(entry); store.set('-demoboard', board);
         return Promise.resolve({ ok: true, score: res.total, secs: entry.secs, top: sortTop(board) });
       }
-      return API.post({ action: 'submit', code: st.code, token: st.token, name: st.name, cuts: clean(st.cuts) });
+      return API.post({ action: 'submit', cuts: clean(st.cuts) });
     },
-    top: function () {
+    top: function (round) {
       if (DEMO) return Promise.resolve({ ok: true, top: sortTop(demoBoard()) });
-      return fetch(CFG.apiUrl + '?action=top&round=' + encodeURIComponent(CFG.round)).then(function (r) { return r.json(); });
+      return getJSON('action=top&round=' + encodeURIComponent(round || CFG.round));
+    },
+    status: function (round) {
+      if (DEMO) return Promise.resolve({ ok: true, open: true, winner: null });
+      return getJSON('action=status&round=' + encodeURIComponent(round || CFG.round));
+    },
+    winner: function (round) {
+      if (DEMO) { // demo: treat the best local score as the winner so the page can be previewed
+        var b = sortTop(demoBoard());
+        return Promise.resolve(b.length && b[0].cuts ? { ok: true, name: b[0].name, score: b[0].score, secs: b[0].secs, cuts: b[0].cuts, top: b } : { ok: false, error: 'no_entries' });
+      }
+      return getJSON('action=winner&round=' + encodeURIComponent(round || CFG.round));
     }
   };
   var ERR = {
-    invalid: "That code isn't recognised. Check it and try again.",
-    used: 'That code has already been used. Each code gives one attempt only.',
-    started: 'That code has already been used to start an attempt. Each code gives one attempt only.',
+    key: "That link isn't recognised. Please use the latest invitation email, or ask the organiser to resend it.",
+    used: 'You’ve already submitted your attempt for this round.',
     closed: 'This round has closed. Look out for next month’s game!',
-    token: 'This attempt could not be verified. Please contact the organiser.',
+    not_started: 'Your attempt could not be found. Please open your invitation link again.',
     name: 'Please enter your name (2–24 characters).',
     version: 'The game has been updated. Please refresh the page.',
     network: "Couldn't reach the scoreboard. Check your connection and try again."
@@ -59,14 +84,31 @@
   function errText(e) { return ERR[e] || ERR.network; }
 
   // ---------------- state ----------------
-  var state = store.get('-state');   // {code, token, name, cuts, startedAt}
+  var state = store.get('-state');   // {key, name, cuts, startedAt}
   var done = store.get('-done');     // {name, score, cuts, secs}
+  if (state && !DEMO && (!state.key || state.key !== playerKey)) state = null; // progress belongs to a different player / old format
   var edit = null;                   // {idx, cut}
   var layers = { ghost: true };      // clearance zones are hidden during play; shown only on results
   var timerId = null;
 
   function clean(o) { return JSON.parse(JSON.stringify(o, function (k, v) { return k.charAt(0) === '_' ? undefined : v; })); }
-  function save() { if (state) store.set('-state', clean(state)); }
+  var saveT = null;
+  function save() {
+    if (!state) return;
+    store.set('-state', clean(state));
+    if (DEMO) return;
+    clearTimeout(saveT);   // send progress to the server shortly after the last change
+    saveT = setTimeout(pushSave, 1500);
+  }
+  function pushSave(keepalive) {
+    saveT = null;
+    if (!state || DEMO) return;
+    API.save(clean(state.cuts), keepalive).then(function (r) {
+      if (r && !r.ok && (r.error === 'closed' || r.error === 'used')) toast(errText(r.error));
+    }).catch(function () { });
+  }
+  window.addEventListener('pagehide', function () { if (saveT) { clearTimeout(saveT); pushSave(true); } });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && saveT) { clearTimeout(saveT); pushSave(true); } });
   function fmtTime(secs) { secs = Math.max(0, Math.round(secs)); var m = Math.floor(secs / 60), s = secs % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
@@ -688,6 +730,7 @@
     API.submit(state).then(function (r) {
       btn.disabled = false; btn.textContent = 'Submit';
       if (!r || !r.ok) { $('submitError').textContent = errText(r && r.error); return; }
+      clearTimeout(saveT); saveT = null;
       done = { name: state.name, score: r.score, secs: r.secs, cuts: clean(state.cuts), at: Date.now() };
       store.set('-done', done); store.del('-state');
       clearInterval(timerId);
@@ -702,11 +745,19 @@
   }
   var TYPE = { removal: 'Removal cut', reduction: 'Reduction cut', heading: 'Heading cut' };
 
-  function showResults(d, top) {
+  function showResults(d, top, opts) {
+    opts = opts || {};
     var res = LC.scoreAll(d.cuts);
     show('screenResults');
     $('resTotal').textContent = d.score != null ? d.score : res.total;
-    if (top) {
+    $('resEyebrow').textContent = opts.winner ? 'Winning submission · ' + (CFG.roundLabel || CFG.round) : 'Your score';
+    $('resName').hidden = !opts.winner; $('resName').textContent = opts.winner ? d.name : '';
+    $('boardResTitle').textContent = opts.winner ? 'Final Top 10' : 'Top 10';
+    $('resBackGame').hidden = !opts.winner;
+    if (opts.winner) {
+      renderBoard($('boardResults'), top, d);
+      $('resRank').textContent = d.secs != null ? 'Completed in ' + fmtTime(d.secs) + '. Here’s every cut and how it scored.' : 'Here’s every cut and how it scored.';
+    } else if (top) {
       renderBoard($('boardResults'), top, d);
       var pos = -1; top.forEach(function (r, i) { if (pos < 0 && r.name === d.name && r.score === d.score) pos = i; });
       $('resRank').textContent = pos >= 0 ? 'You’re currently #' + (pos + 1) + ' on the scoreboard' : 'Not in the Top 10 this time. Nice work getting the job done.';
@@ -727,7 +778,7 @@
       }).join('') || '<p class="muted small">No cuts on this tree.</p>';
       return '<section class="card tree-res"><h2><span>' + esc(tr.name) + '</span><span class="pts">' + Math.round(p.total) + '<small class="muted">/500</small></span></h2>' +
         '<div class="bars">' + bar('Clearance', p.clearance, 200) + bar('Cut quality', p.cuts, 200) + bar('Crown', p.crown, 100) + '</div>' + facts +
-        '<details class="cuts-detail"' + (tr.cuts.length <= 8 ? ' open' : '') + '><summary>Your cuts (' + tr.cuts.length + ')</summary>' + cutsHtml + '</details></section>';
+        '<details class="cuts-detail"' + (tr.cuts.length <= 8 || opts.winner ? ' open' : '') + '><summary>' + (opts.winner ? 'Cuts' : 'Your cuts') + ' (' + tr.cuts.length + ')</summary>' + cutsHtml + '</details></section>';
     }).join('');
     void idxMap;
     // final scene
@@ -736,25 +787,74 @@
       rc.width = Math.round(r.width * dp); rc.height = Math.round(r.height * dp);
       var g = rc.getContext('2d'); g.setTransform(dp, 0, 0, dp, 0, 0);
       var v = VIEWS.all, cm = makeCam(v[0], v[1], v[2], v[3], r.width, r.height);
-      drawScene(g, cm, { keep: res.trees.map(function (t) { return t.keep; }), zones: true, ghost: true, cuts: d.cuts, noBadges: true, nearest: res });
+      drawScene(g, cm, { keep: res.trees.map(function (t) { return t.keep; }), zones: true, ghost: true, cuts: d.cuts, noBadges: !opts.winner, nearest: res });
     });
   }
 
   // =====================================================================
   //  INTRO
   // =====================================================================
-  function initIntro() {
+  function initStatic() {
     document.querySelectorAll('.roundLabel').forEach(function (el) { el.textContent = CFG.roundLabel || CFG.round; });
     document.querySelectorAll('.closes').forEach(function (el) { el.textContent = CFG.closes || 'the end of the month'; });
     $('roundLabel').textContent = CFG.roundLabel || '';
-    if (DEMO) { $('demoBanner').hidden = false; document.body.classList.add('has-demo'); $('codeRow').hidden = true; }
-    if (done) {
-      $('startCard').hidden = true; $('doneCard').hidden = false;
-      $('doneName').textContent = done.name; $('doneScore').textContent = done.score;
-      if (done.cuts) { $('btnViewResults').hidden = false; }
-    }
-    loadBoard();
+    if (DEMO) { $('demoBanner').hidden = false; document.body.classList.add('has-demo'); }
   }
+  function cards(which) {
+    ['startCard', 'doneCard', 'noKeyCard', 'closedCard'].forEach(function (id) { $(id).hidden = id !== which; });
+  }
+  function showDone() {
+    cards('doneCard');
+    $('doneName').textContent = done.name; $('doneScore').textContent = done.score;
+    $('btnViewResults').hidden = !(done.cuts && done.cuts.length);
+  }
+  function loadRoundStatus() {
+    API.status(CFG.round).then(function (r) {
+      if (!r || !r.ok) return;
+      if (!r.open && !DEMO) {
+        $('boardNote').textContent = 'Final standings. Equal scores were split by the faster time.';
+        if (!done) cards('closedCard');
+      }
+      if (!r.winner) return;
+      $('winnerCard').hidden = false;
+      $('winName').textContent = r.winner; $('winScore').textContent = r.winnerScore;
+    }).catch(function () { });
+  }
+  function startBtn(text, disabled) { var b = $('btnStart'); b.textContent = text; b.disabled = !!disabled; }
+
+  function bootIntro() {
+    show('screenIntro'); loadBoard(); loadRoundStatus();
+    if (DEMO) {
+      $('nameRow').hidden = false;
+      if (done) showDone(); else if (state) enterPlay();
+      return;
+    }
+    if (!playerKey) { cards('noKeyCard'); return; }
+    cards('startCard'); startBtn('Signing you in…', true);
+    API.whoami().then(function (r) {
+      if (!r || !r.ok) {
+        if (r && r.error === 'key') {
+          try { localStorage.removeItem(PKEY); } catch (e) { }
+          playerKey = null; cards('noKeyCard');
+          $('noKeyTitle').textContent = 'Link not recognised'; $('noKeyText').textContent = ERR.key;
+        } else { startBtn('Try again', false); $('startError').textContent = errText(r && r.error); }
+        return;
+      }
+      if (r.status === 'submitted') {
+        done = { name: r.name, score: r.score, secs: r.secs, cuts: r.cuts || (done && done.cuts) || [] };
+        store.set('-done', done); store.del('-state'); state = null;
+        showDone(); loadBoard(); return;
+      }
+      if (!r.open) { cards('closedCard'); return; }
+      $('startHello').hidden = false;
+      $('startHello').textContent = (r.status === 'started' ? 'Welcome back, ' : 'Welcome, ') + r.name + '.';
+      $('startTitle').textContent = r.status === 'started' ? 'Your attempt is in progress' : 'Ready when you are';
+      startBtn(r.status === 'started' ? 'Carry on with my attempt' : 'Start the job', false);
+      $('btnStart').dataset.name = r.name;
+      if (r.status === 'started' && state && state.key === playerKey) enterPlay(); // same device: straight back in
+    }).catch(function () { startBtn('Try again', false); $('startError').textContent = ERR.network; });
+  }
+
   $('btnViewResults').addEventListener('click', function () { showResults(done, null); });
   $('sheetHead').addEventListener('click', function (e) {
     if (e.target.closest('#btnRules2')) return;
@@ -766,24 +866,44 @@
 
   $('startForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    var name = $('inName').value.replace(/\s+/g, ' ').trim();
-    var code = $('inCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     $('startError').textContent = '';
-    if (name.length < 2 || name.length > 24) { $('startError').textContent = ERR.name; return; }
-    if (!DEMO && code.length < 6) { $('startError').textContent = 'Please enter the access code you were given.'; return; }
-    var btn = $('btnStart'); btn.disabled = true; btn.textContent = 'Checking code…';
-    API.start(code, name).then(function (r) {
-      btn.disabled = false; btn.textContent = 'Start the job';
-      if (!r || !r.ok) { $('startError').textContent = errText(r && r.error); return; }
-      state = { code: code, token: r.token, name: name, cuts: [], startedAt: Date.now() };
-      save(); enterPlay();
-      setTimeout(function () { toast('Tap a branch to mark your first cut.'); }, 600);
-    }).catch(function () { btn.disabled = false; btn.textContent = 'Start the job'; $('startError').textContent = ERR.network; });
+    if (!DEMO && $('btnStart').textContent === 'Try again') { bootIntro(); return; }
+    var name = DEMO ? $('inName').value.replace(/\s+/g, ' ').trim() : $('btnStart').dataset.name;
+    if (DEMO && (name.length < 2 || name.length > 24)) { $('startError').textContent = ERR.name; return; }
+    var label = $('btnStart').textContent;
+    startBtn('Starting…', true);
+    API.start().then(function (r) {
+      startBtn(label, false);
+      if (!r || !r.ok) {
+        $('startError').textContent = errText(r && r.error);
+        if (r && r.error === 'used') bootIntro();
+        return;
+      }
+      var local = state && state.key === playerKey && state.cuts && state.cuts.length ? state.cuts : null;
+      state = { key: playerKey, name: r.name || name, cuts: local || r.cuts || [], startedAt: r.startedAt || Date.now() };
+      store.set('-state', clean(state)); enterPlay();
+      setTimeout(function () { toast(r.resumed ? 'Welcome back. Your cuts have been restored.' : 'Tap a branch to mark your first cut.'); }, 600);
+    }).catch(function () { startBtn(label, false); $('startError').textContent = ERR.network; });
   });
 
+  function bootWinner() {
+    var round = PARAMS.get('round') || CFG.round;
+    show('screenResults');
+    $('resEyebrow').textContent = 'Winning submission · ' + (CFG.roundLabel || CFG.round);
+    $('resTotal').textContent = '…'; $('resRank').textContent = 'Loading…'; $('resBackGame').hidden = false;
+    API.winner(round).then(function (r) {
+      if (!r || !r.ok) {
+        $('resTotal').textContent = '–';
+        $('resRank').textContent = r && r.error === 'not_closed' ? 'The winning submission will be published here when the round closes.' : 'There were no entries this round.';
+        return;
+      }
+      showResults({ name: r.name, score: r.score, secs: r.secs, cuts: r.cuts }, r.top, { winner: true });
+    }).catch(function () { $('resRank').textContent = ERR.network; });
+  }
+
   // boot
-  initIntro();
-  if (state && !done) enterPlay(); else show('screenIntro');
+  initStatic();
+  if (PARAMS.get('view') === 'winner') bootWinner(); else bootIntro();
   requestAnimationFrame(frame);
 
   // test hook (harmless in production)

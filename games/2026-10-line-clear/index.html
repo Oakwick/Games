@@ -21,7 +21,7 @@
   </div>
 </header>
 
-<div class="demo-banner" id="demoBanner" hidden>Demo mode: no access code needed, and scores only save on this device.</div>
+<div class="demo-banner" id="demoBanner" hidden>Demo mode: no invitation link needed, and scores only save on this device.</div>
 
 <!-- ============ INTRO ============ -->
 <main id="screenIntro" class="screen intro">
@@ -44,15 +44,33 @@
       <button class="link" id="btnRules">How scoring works →</button>
     </section>
 
+    <section class="card winner-card" id="winnerCard" hidden>
+      <p class="eyebrow">Winner · <span class="roundLabel"></span></p>
+      <h2 id="winName"></h2>
+      <p>with <b id="winScore"></b> points</p>
+      <a class="btn primary" id="winLink" href="?view=winner">See the winning cuts and scores →</a>
+    </section>
+
     <section class="card start" id="startCard">
-      <h2>Start your attempt</h2>
-      <p class="warn"><b>One attempt only.</b> Your access code works once. If you close or refresh the page you'll carry on where you left off on this device, but the code won't start again anywhere else.</p>
+      <h2 id="startTitle">Start your attempt</h2>
+      <p class="hello" id="startHello" hidden></p>
+      <p class="warn"><b>One attempt only.</b> Your progress is saved as you go. If you need to, you can carry on on another device by opening your link again, but you can't start over.</p>
       <form id="startForm" autocomplete="off">
-        <label id="codeRow">Access code<input id="inCode" name="code" maxlength="12" placeholder="e.g. K7Q4-M2XP" autocapitalize="characters" spellcheck="false"></label>
-        <label>Your name, as shown on the scoreboard<input id="inName" name="name" maxlength="24" placeholder="First name and surname" required></label>
+        <label id="nameRow" hidden>Your name, as shown on the scoreboard<input id="inName" name="name" maxlength="24" placeholder="First name and surname"></label>
         <button class="btn primary big" type="submit" id="btnStart">Start the job</button>
         <p class="error" id="startError" role="alert"></p>
       </form>
+    </section>
+
+    <section class="card" id="noKeyCard" hidden>
+      <h2 id="noKeyTitle">Play from your email</h2>
+      <p id="noKeyText">Each month you'll get an email with your own link to play. Open that link and it signs you in automatically. There's nothing to type.</p>
+      <p class="small muted">Can't find it? Ask the organiser to resend your invitation.</p>
+    </section>
+
+    <section class="card" id="closedCard" hidden>
+      <h2>This round has closed</h2>
+      <p>Thanks for your interest. Look out for next month's game in your email.</p>
     </section>
 
     <section class="card done" id="doneCard" hidden>
@@ -66,7 +84,7 @@
     <section class="card board">
       <h2>Top 10 · <span class="roundLabel"></span></h2>
       <ol class="leaderboard" id="boardIntro"><li class="muted">Loading…</li></ol>
-      <p class="small muted">The round closes <span class="closes"></span>. Equal scores are split by the faster time.</p>
+      <p class="small muted" id="boardNote">The round closes <span class="closes"></span>. Equal scores are split by the faster time.</p>
     </section>
   </div>
   <p class="disclaimer">Scoring is a simplified game model based on BS 3998:2010 principles and common line-clearance practice. It isn't a substitute for the standard, your company's procedures or a site risk assessment.</p>
@@ -141,7 +159,8 @@
 <!-- ============ RESULTS ============ -->
 <main id="screenResults" class="screen results" hidden>
   <section class="result-hero">
-    <p class="eyebrow">Your score</p>
+    <p class="eyebrow" id="resEyebrow">Your score</p>
+    <h2 class="res-name" id="resName" hidden></h2>
     <p class="bigscore" id="resTotal">0</p>
     <p class="muted">out of 1000</p>
     <p id="resRank" class="rank"></p>
@@ -149,12 +168,12 @@
   <div class="result-grid">
     <section class="card"><canvas id="resultScene" class="result-scene"></canvas></section>
     <section class="card board">
-      <h2>Top 10 · <span class="roundLabel"></span></h2>
+      <h2><span id="boardResTitle">Top 10</span> · <span class="roundLabel"></span></h2>
       <ol class="leaderboard" id="boardResults"></ol>
     </section>
   </div>
   <div id="resTrees" class="result-trees"></div>
-  <p class="center"><a class="btn" href="../../index.html">Back to Oakwick Games</a></p>
+  <p class="center"><a class="btn" id="resBackGame" href="./" hidden>Back to the game</a> <a class="btn" href="../../index.html">Back to Oakwick Games</a></p>
 </main>
 
 <!-- ============ DIALOGS ============ -->
