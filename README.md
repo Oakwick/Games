@@ -9,7 +9,7 @@ Quick monthly games for staff, hosted on GitHub Pages and installable as an app 
 
 Every cut is scored against BS 3998 good practice.
 
-The clearance zones aren't drawn while players work. They only get the conductors and a scale bar, so they have to judge the distances themselves. The zones and each player's actual clearances are shown on the results screen.
+The clearance zones aren't drawn while players work. They only get the conductors and a scale bar, so they have to judge the distances themselves. The zones and each player's actual clearances are shown on the results screen. In the cut close-up, players can tap a branch to move the cut onto it, which makes it easier to hit the right one on a small screen.
 
 ```
 index.html                     Oakwick Games home page (lists this month's game)

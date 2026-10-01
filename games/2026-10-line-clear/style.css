@@ -257,3 +257,9 @@ button, .btn, .seg button, .cut-item { touch-action: manipulation; }
 @media (pointer: coarse) {
   .tools .seg[aria-label="Zoom"] { display: none; }
 }
+
+.closeup-tip { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); background: rgba(31,58,43,.85); color: #fff; font-size: .7rem; font-weight: 600; padding: 4px 9px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+#closeup { cursor: pointer; }
+.closeup-tip.show { animation: tipfade 4.5s ease forwards; }
+.closeup-tip:not(.show) { opacity: 0; }
+@keyframes tipfade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }

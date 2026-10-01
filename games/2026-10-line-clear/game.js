@@ -432,6 +432,7 @@
     $('listView').hidden = true; $('editView').hidden = false; $('panel').classList.add('editing');
     $('btnDelete').hidden = idx < 0;
     $('btnConfirm').textContent = idx < 0 ? 'Confirm cut' : 'Update cut';
+    var tip = document.querySelector('.closeup-tip'); tip.classList.remove('show'); void tip.offsetWidth; tip.classList.add('show');
     requestAnimationFrame(function () { resize(); sizeCloseup(); });
     refreshEditor(); dirty = true;
   }
@@ -486,17 +487,41 @@
   });
 
   // close-up drag
+  // Drag = slide the cut along its branch. Tap = put the cut where you tapped,
+  // including onto a different branch (much easier than picking in the site view on a phone).
   var cdrag = null, ccam = null;
-  cu.addEventListener('pointerdown', function (e) { cu.setPointerCapture(e.pointerId); cdrag = { x: e.offsetX, y: e.offsetY }; });
+  cu.addEventListener('pointerdown', function (e) {
+    cu.setPointerCapture(e.pointerId);
+    cdrag = { sx: e.offsetX, sy: e.offsetY, x: e.offsetX, y: e.offsetY, moved: false, touch: e.pointerType !== 'mouse' };
+  });
   cu.addEventListener('pointermove', function (e) {
     if (!cdrag || !edit || !ccam) return;
+    if (!cdrag.moved) {
+      if (Math.hypot(e.offsetX - cdrag.sx, e.offsetY - cdrag.sy) < (cdrag.touch ? 10 : 5)) return;
+      cdrag.moved = true;
+    }
     var c = edit.cut, P = LC.pointAt(TREES[c.t].branches[c.b], c.s);
     var dx = e.offsetX - cdrag.x, dy = e.offsetY - cdrag.y;
     var ds = (dx * P.ux - dy * P.uy) / ccam.k;
-    if (Math.abs(ds) >= 0.001) { moveCut(ds); cdrag = { x: e.offsetX, y: e.offsetY }; }
+    if (Math.abs(ds) >= 0.001) { moveCut(ds); cdrag.x = e.offsetX; cdrag.y = e.offsetY; }
   });
-  cu.addEventListener('pointerup', function () { cdrag = null; });
+  cu.addEventListener('pointerup', function (e) {
+    var d = cdrag; cdrag = null;
+    if (!d || d.moved || !edit || !ccam) return;
+    closeupTap(e.offsetX, e.offsetY, d.touch);
+  });
   cu.addEventListener('pointercancel', function () { cdrag = null; });
+
+  function closeupTap(sx, sy, touch) {
+    var c = edit.cut, tree = TREES[c.t], w = s2w(ccam, sx, sy);
+    var hit = LC.pick(tree, keepOthers(c.t), w[0], w[1], (touch ? 18 : 10) / ccam.k);
+    if (!hit) { toast('Tap on a branch in the close-up to move the cut onto it.'); return; }
+    if (hit.b === 0 && hit.s < 2.5) { toast('That would fell the tree, which isn’t in the job spec.'); return; }
+    var changed = hit.b !== c.b;
+    edit.cut = { t: c.t, b: hit.b, s: Math.round(hit.s * 1000) / 1000, a: c.a, m: c.m };
+    refreshEditor();
+    if (changed) toast('Cut moved onto this branch.');
+  }
 
   function drawUnionFeatures(g, cm, tree, kid, keep) {
     if (keep[kid.p] < 0 || kid.ps > keep[kid.p]) return;
@@ -557,6 +582,18 @@
     // removed wood (ghost), then retained with outline
     near.forEach(function (bb) { var L = keep[bb.id]; if (L < bb.len) strokeBranch(g, ccam, bb, Math.max(0, L), bb.len, '#cfc6bb', 1); });
     near.forEach(function (bb) { var L = keep[bb.id]; if (L > 0) { g.save(); g.lineCap = 'round'; strokeOutline(g, ccam, bb, L); g.restore(); } });
+    // glow on the branch the cut is on, so it's obvious which one is selected
+    (function () {
+      var L = Math.min(b.len, Math.max(0, keep[b.id] < 0 ? c.s : Math.max(keep[b.id], c.s)));
+      g.save(); g.globalAlpha = 0.55;
+      for (var i = 1; i < b.pts.length; i++) {
+        if (b.cum[i - 1] >= L) break;
+        var q0 = w2s(ccam, b.pts[i - 1][0], b.pts[i - 1][1]), e1 = b.cum[i] > L ? LC.pointAt(b, L) : { x: b.pts[i][0], y: b.pts[i][1] }, q1 = w2s(ccam, e1.x, e1.y);
+        g.strokeStyle = '#ffb347'; g.lineWidth = Math.max(1, b.d[i - 1] * ccam.k) + 9; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); g.stroke();
+      }
+      g.restore();
+    })();
     near.forEach(function (bb) { var L = keep[bb.id]; if (L > 0) strokeBranch(g, ccam, bb, 0, L, BARK, 1); });
     // collars & ridges at unions in view
     near.forEach(function (bb) { if (bb.p >= 0) drawUnionFeatures(g, ccam, tree, bb, keep); });
