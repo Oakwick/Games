@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a2b">
+<title>Line Clear · Oakwick Games</title>
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="icon" href="../../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../../index.html" title="Oakwick Games home"><img src="../../icons/icon-192.png" alt=""><span>Oakwick Games</span></a>
+  <div class="title"><strong>Line Clear</strong><span id="roundLabel"></span></div>
+  <div class="hud" id="hud" hidden>
+    <span class="chip" title="Time"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><b id="timer">00:00</b></span>
+    <span class="chip" title="Cuts marked"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg><b id="cutCount">0</b></span>
+    <button class="btn primary" id="btnSubmit">Submit</button>
+  </div>
+</header>
+
+<div class="demo-banner" id="demoBanner" hidden>Demo mode: no access code needed, and scores only save on this device.</div>
+
+<!-- ============ INTRO ============ -->
+<main id="screenIntro" class="screen intro">
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">Monthly challenge · <span class="roundLabel"></span></p>
+      <h1>Line Clear</h1>
+      <p class="lede">An 11kV overhead line runs between two trees. Mark the cuts to give the line its clearance: choose which limb, where and how you cut each one. Every cut is judged against <b>BS&nbsp;3998</b> good practice.</p>
+    </div>
+  </section>
+
+  <div class="intro-grid">
+    <section class="card brief">
+      <h2>The job</h2>
+      <div class="spec">
+        <div class="spec-item"><span class="tag a">Tree A</span><div><b>Side trim: 4.5 m clearance</b><p>Sycamore on the left of the line. Cut back the side facing the line so that no vegetation is within 4.5 m (horizontally) of the nearest conductor.</p></div></div>
+        <div class="spec-item"><span class="tag b">Tree B</span><div><b>Restricted full crown reduction: 3.0 m clearance</b><p>Oak on the right of the line. Reduce the <i>whole</i> crown evenly so that it keeps its natural shape and nothing is within 3.0 m of any conductor.</p></div></div>
+      </div>
+      <p class="small"><b>The clearance zones aren't marked on site.</b> Judge distances from the conductors yourself using the scale bar. Clearance is measured to the nearest vegetation, foliage included. Get as close to the target as you can. Falling short of it costs you heavily, and over-cutting costs you too.</p>
+      <button class="link" id="btnRules">How scoring works →</button>
+    </section>
+
+    <section class="card start" id="startCard">
+      <h2>Start your attempt</h2>
+      <p class="warn"><b>One attempt only.</b> Your access code works once. If you close or refresh the page you'll carry on where you left off on this device, but the code won't start again anywhere else.</p>
+      <form id="startForm" autocomplete="off">
+        <label id="codeRow">Access code<input id="inCode" name="code" maxlength="12" placeholder="e.g. K7Q4-M2XP" autocapitalize="characters" spellcheck="false"></label>
+        <label>Your name, as shown on the scoreboard<input id="inName" name="name" maxlength="24" placeholder="First name and surname" required></label>
+        <button class="btn primary big" type="submit" id="btnStart">Start the job</button>
+        <p class="error" id="startError" role="alert"></p>
+      </form>
+    </section>
+
+    <section class="card done" id="doneCard" hidden>
+      <h2>You've played this month</h2>
+      <p>Thanks, <b id="doneName"></b>. Your score:</p>
+      <p class="bigscore" id="doneScore">0</p>
+      <p class="small">The top score when the round closes on <span class="closes"></span> wins the monthly prize.</p>
+      <button class="btn" id="btnViewResults" hidden>View my breakdown</button>
+    </section>
+
+    <section class="card board">
+      <h2>Top 10 · <span class="roundLabel"></span></h2>
+      <ol class="leaderboard" id="boardIntro"><li class="muted">Loading…</li></ol>
+      <p class="small muted">The round closes <span class="closes"></span>. Equal scores are split by the faster time.</p>
+    </section>
+  </div>
+  <p class="disclaimer">Scoring is a simplified game model based on BS 3998:2010 principles and common line-clearance practice. It isn't a substitute for the standard, your company's procedures or a site risk assessment.</p>
+</main>
+
+<!-- ============ PLAY ============ -->
+<main id="screenPlay" class="screen play" hidden>
+  <div class="stage" id="stage">
+    <canvas id="scene" aria-label="Site view: two trees either side of an overhead line. Tap a branch to mark a cut."></canvas>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="View">
+        <button data-view="A">Tree A</button>
+        <button data-view="all">Site</button>
+        <button data-view="B">Tree B</button>
+      </div>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button data-zoom="-1" title="Zoom out">−</button>
+        <button data-zoom="1" title="Zoom in">+</button>
+      </div>
+      <div class="seg" role="group" aria-label="Layers">
+        <button class="on" data-layer="ghost" title="Show wood you're removing">Show removed</button>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <div class="hint" id="hint">Tap a branch to mark a cut · drag to pan · pinch or scroll to zoom</div>
+  </div>
+
+  <aside class="panel collapsed" id="panel">
+    <!-- cut list -->
+    <div id="listView">
+      <div class="panel-head sheet-head" id="sheetHead"><h3>Your cuts <span id="listCount"></span></h3><span class="head-right"><button class="link" id="btnRules2">Rules</button><span class="sheet-caret" aria-hidden="true"></span></span></div>
+      <p class="small muted" id="listEmpty">No cuts yet. Tap a branch in the site view to mark one.</p>
+      <div id="cutList"></div>
+    </div>
+    <!-- cut editor -->
+    <div id="editView" hidden>
+      <div class="panel-head"><h3 id="editTitle">New cut</h3><button class="icon" id="btnEditClose" title="Close">✕</button></div>
+      <div class="closeup-wrap">
+        <canvas id="closeup" aria-label="Close-up of the cut"></canvas>
+        <div class="closeup-legend"><span><i class="lg-cut"></i>Your cut</span><span><i class="lg-collar"></i>Collar edge</span><span><i class="lg-ridge"></i>Bark ridge</span></div>
+        <div class="readout"><span>Stem Ø</span><b id="roDiam">–</b></div>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Position <small>(drag the close-up, or nudge)</small></span>
+        <div class="nudge">
+          <button data-nudge="-0.05">−5 cm</button><button data-nudge="-0.01">−1 cm</button>
+          <button data-nudge="0.01">+1 cm</button><button data-nudge="0.05">+5 cm</button>
+        </div>
+        <small class="muted">− moves towards the union, + moves towards the tip</small>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Cut angle <b id="roAngle">0°</b></span>
+        <div class="angle-row"><button data-ang="-1">↻</button><input type="range" id="inAngle" min="-60" max="60" step="1" value="0"><button data-ang="1">↺</button></div>
+        <small class="muted">0° is square across the stem</small>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Technique</span>
+        <div class="seg wide" id="segMethod">
+          <button data-m="1" class="on">Single cut</button>
+          <button data-m="3">Three-cut method</button>
+        </div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn primary" id="btnConfirm">Confirm cut</button>
+        <button class="btn danger" id="btnDelete" hidden>Delete</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ============ RESULTS ============ -->
+<main id="screenResults" class="screen results" hidden>
+  <section class="result-hero">
+    <p class="eyebrow">Your score</p>
+    <p class="bigscore" id="resTotal">0</p>
+    <p class="muted">out of 1000</p>
+    <p id="resRank" class="rank"></p>
+  </section>
+  <div class="result-grid">
+    <section class="card"><canvas id="resultScene" class="result-scene"></canvas></section>
+    <section class="card board">
+      <h2>Top 10 · <span class="roundLabel"></span></h2>
+      <ol class="leaderboard" id="boardResults"></ol>
+    </section>
+  </div>
+  <div id="resTrees" class="result-trees"></div>
+  <p class="center"><a class="btn" href="../../index.html">Back to Oakwick Games</a></p>
+</main>
+
+<!-- ============ DIALOGS ============ -->
+<dialog id="dlgRules" class="dlg">
+  <form method="dialog">
+    <h2>How scoring works</h2>
+    <p>Each tree is worth <b>500</b> points, so the maximum is <b>1000</b>.</p>
+    <table class="rules">
+      <tr><th>Clearance</th><td>200</td><td>Full marks for hitting the target exactly (A: 4.5 m side, B: 3.0 m all round). Marks drop away the more you over-cut (none left at 1.5 m over). Falling short of the clearance at all halves your marks, and they're gone by 0.5 m short.</td></tr>
+      <tr><th>Cut quality</th><td>200</td><td>Every cut is scored out of 100 against BS&nbsp;3998 good practice (below), then averaged, with bigger cuts counting for more.</td></tr>
+      <tr><th>Crown</th><td>100</td><td>Remove no more than 30% of the leaf-bearing material. On Tree B, reduce the crown <i>evenly all round</i> so it keeps its natural shape.</td></tr>
+    </table>
+    <h3>Each cut (out of 100)</h3>
+    <ul class="rules-list">
+      <li><b>Position (45):</b> removal cuts go just outside the branch collar, and reduction cuts go just beyond a lateral (a growth point). No flush cuts into the collar or bark ridge, and no stubs. A heading cut between unions gets no position marks.</li>
+      <li><b>Angle (20):</b> use the angle that keeps the wound smallest without damaging the collar or ridge. For a reduction, that's roughly bisecting the branch bark ridge and a line square to the stem you're removing.</li>
+      <li><b>Proportions (15):</b> when reducing, the lateral you keep should be at least one-third of the diameter of the stem you're removing. When removing a branch, it should be no more than one-third of the parent stem.</li>
+      <li><b>Wound size (10):</b> keep cuts to 100 mm diameter or less.</li>
+      <li><b>Technique (10):</b> use the three-cut method on limbs over 75 mm so the bark doesn't tear.</li>
+    </ul>
+    <p class="small">The clearance zones aren't drawn while you work, so judge them from the conductors and the scale bar. You'll see them, and your actual clearances, on the results screen. On Tree A, cuts that don't help the clearance count half. BS&nbsp;3998 says to remove no more than necessary. Equal scores are split by the faster time.</p>
+    <p class="disclaimer">This is a simplified game model based on BS 3998:2010 principles. Always follow the standard and your company's procedures on site.</p>
+    <div class="dlg-actions"><button class="btn primary" value="ok">Got it</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgSubmit" class="dlg">
+  <form method="dialog">
+    <h2>Submit your work?</h2>
+    <p id="submitSummary"></p>
+    <p><b>This is final.</b> Once you submit, you can't change your cuts or play again this month.</p>
+    <p class="error" id="submitError" role="alert"></p>
+    <div class="dlg-actions"><button class="btn" value="cancel">Keep working</button><button class="btn primary" id="btnSubmitGo" value="go">Submit</button></div>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="trees-data.js"></script>
+<script src="engine.js"></script>
+<script src="game.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('../../sw.js').catch(function () {});
+</script>
+</body>
+</html>
