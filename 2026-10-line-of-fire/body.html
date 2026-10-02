@@ -1,0 +1,47 @@
+<div class="app">
+  <header class="bar">
+    <div class="brand"><b>Line of Fire</b><span>Safe Hands &amp; Body: Protect What You Use Most</span></div>
+    <div class="stat"><small>Moment</small><span class="v" id="hudScene">1 / 8</span></div>
+    <div class="stat"><small>Score</small><span class="v" id="hudScore">0</span></div>
+    <span class="co-logo bar-logo" role="img" aria-label="Oakwick Utility Arborists"></span>
+  </header>
+  <main class="main">
+    <section class="scene-wrap" aria-label="The picture">
+      <div class="stage">
+        <svg id="scene" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="The picture for this moment"></svg>
+        <button class="replay" id="replay" type="button" hidden>Play it again</button>
+        <div class="toast" id="toast" role="status"></div>
+      </div>
+      <div class="happens" id="happens" role="status" hidden></div>
+    </section>
+    <section class="panel" id="panel" aria-live="polite"></section>
+  </main>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="sheet striped">
+    <div class="splash-head"><div class="kicker">Safe Hands &amp; Body: Protect What You Use Most</div><span class="co-logo" role="img" aria-label="Oakwick Utility Arborists"></span></div>
+    <h1>Line of Fire</h1>
+    <p>Hand injuries are rising across our industry. Most of them happen on jobs people have done hundreds of times, and plenty happen before the main task starts or after it has finished.</p>
+    <p>This game is about one question. Ask it before every task.</p>
+    <p class="quote" id="introQuote"></p>
+    <ol class="steps">
+      <li><b>Eight moments</b> from an ordinary working day, from hitching up to packing away.</li>
+      <li><b>Mark the hands.</b> Each picture shows several places a hand could be. Mark every one that is in the line of fire.</li>
+      <li><b>Make the call.</b> Choose what you would do.</li>
+      <li><b>See what happens</b> when something moves.</li>
+    </ol>
+    <p class="small">This one is not a competition. There is no prize, no Top 10 and no clock, so take your time. You get a score out of 800 and feedback on every answer. <span id="introRecord"></span></p>
+    <div id="introState"></div>
+    <p class="proto">A simplified game. It is not a substitute for your training, the risk assessment or company procedures.</p>
+    <p class="proto demo-only">Demo for testing: nothing is recorded, and your answers stay on this device.</p>
+  </div>
+</div>
+
+<div class="overlay" id="pledge" hidden>
+  <div class="sheet striped" id="pledgeBody"></div>
+</div>
+
+<div class="overlay" id="results" hidden>
+  <div class="sheet striped" id="resultsBody"></div>
+</div>
