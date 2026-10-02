@@ -15,11 +15,13 @@
   header { background: var(--forest); color: #fff; padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; }
   header img { width: 36px; height: 36px; border-radius: 8px; }
   header h1 { font-size: 1.2rem; margin: 0; }
+  header .co-logo { margin-left: auto; height: 44px; aspect-ratio: 420 / 323; background: url("icons/oakwick-logo-white.png") center / contain no-repeat; }
   main { max-width: 900px; margin: 0 auto; padding: 18px 16px 40px; }
   .lede { color: var(--muted); margin: 0 0 18px; }
   h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 22px 0 10px; }
   .game { display: flex; gap: 16px; align-items: center; background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06); text-decoration: none; color: inherit; }
   .game.current { background: linear-gradient(135deg, var(--forest), var(--forest-2)); color: #fff; }
+  .game + .game { margin-top: 10px; }
   .game .art { width: 84px; height: 84px; border-radius: 12px; flex: none; background: #cfe3ef; display: grid; place-items: center; overflow: hidden; }
   .game .body { flex: 1; min-width: 0; }
   .game h3 { margin: 0 0 4px; font-size: 1.25rem; }
@@ -27,35 +29,54 @@
   .game .go { background: var(--hivis); color: #1a1100; font-weight: 700; padding: 10px 16px; border-radius: 10px; white-space: nowrap; }
   .badge { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: rgba(255,255,255,.16); padding: 3px 8px; border-radius: 6px; margin-bottom: 6px; }
   .empty { color: var(--muted); font-size: .92rem; }
+  .game.special { background: #1c1f22; color: #fff; position: relative; overflow: hidden; padding-top: 24px; }
+  .game.special::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: repeating-linear-gradient(-45deg, #f5a800 0 12px, #1c1f22 12px 24px); }
+  .game.special .go { background: #f5a800; }
   @media (max-width: 520px) { .game { flex-wrap: wrap; } .game .go { width: 100%; text-align: center; } }
 </style>
 </head>
 <body>
-<header><img src="icons/icon-192.png" alt=""><h1>Oakwick Games</h1></header>
+<header><img src="icons/icon-192.png" alt=""><h1>Oakwick Games</h1><span class="co-logo" role="img" aria-label="Oakwick Utility Arborists"></span></header>
 <main>
   <p class="lede">A quick game every month. One attempt each, and a prize for the top score.</p>
   <h2>This month</h2>
-  <a class="game current" href="games/2026-10-line-clear/">
-    <div class="art">
-      <svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true">
-        <rect width="84" height="84" fill="#cfe3ef"/><rect y="70" width="84" height="14" fill="#7fae6a"/>
-        <circle cx="24" cy="36" r="18" fill="#4e8f43"/><rect x="21" y="48" width="6" height="24" fill="#6b4a31"/>
-        <rect x="55" y="22" width="4" height="50" fill="#8b6a45"/><rect x="46" y="26" width="22" height="3" fill="#4b4f52"/>
-        <circle cx="48" cy="24" r="2.2" fill="#1b1f1c"/><circle cx="57" cy="24" r="2.2" fill="#1b1f1c"/><circle cx="66" cy="24" r="2.2" fill="#1b1f1c"/>
-        <line x1="33" y1="24" x2="41" y2="34" stroke="#ff7a00" stroke-width="3" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <div class="body">
-      <span class="badge">October 2026</span>
-      <h3>Line Clear</h3>
-      <p>Mark BS 3998 pruning cuts to clear an 11kV overhead line: a 4.5 m side trim on one tree and a 3 m crown reduction on the other.</p>
-    </div>
-    <span class="go">Play</span>
-  </a>
+  <div id="current"></div>
+  <div id="special"></div>
   <h2>Past games</h2>
-  <p class="empty">Past games will be listed here.</p>
+  <div id="past"><p class="empty">Past games will be listed here.</p></div>
 </main>
 <script>
+  // Each game appears on the first day of its month. Earlier games move to "Past games" and link to the winning entry.
+  var GAMES = [
+    { round: '2026-10', from: '2026-10-01', label: 'October 2026', title: 'Line Clearance', url: 'games/2026-10-line-clear/', art: 'LC',
+      blurb: 'Mark BS 3998 pruning cuts to clear an 11kV overhead line: a 4.5 m side trim on one tree and a 3 m crown reduction on the other.' },
+    { round: '2026-11', from: '2026-11-01', label: 'November 2026', title: 'Fungi Detective', url: 'games/2026-11-fungi-detective/', art: 'FD',
+      blurb: 'Walk ten trees along an 11kV line. Find the fungus, name it, give each tree its utility category and decide what to do.' },
+    { round: '2026-12', from: '2026-12-01', label: 'December 2026', title: 'Advent Calendar', url: 'games/2026-12-advent/', art: 'AD',
+      blurb: 'A new door every morning from 1 to 24 December. Each one is a quick challenge worth up to 100 points. Highest total wins on Christmas Eve.' }
+  ];
+  // Special editions run alongside the monthly game. They have no prize and no Top 10.
+  // "until" is the last day the card is shown: keep it in step with the closing date in the Rounds tab.
+  var SPECIALS = [
+    { from: '2026-10-02', until: '2026-10-31', label: 'Special edition · hand safety', title: 'Line of Fire', url: 'games/2026-10-line-of-fire/', art: 'LF',
+      blurb: 'Eight moments from an ordinary working day. Mark the hands that are in harm’s way and make the call. No prize, no clock and no sign-in: this one is about going home with all your fingers.' }
+  ];
+  var ART = { LF: '<svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><rect width="84" height="84" fill="#2a2f33"/><g transform="translate(41 38) scale(1.45)"><g fill="#f5a800"><rect x="-13" y="-16" width="6" height="18" rx="3"/><rect x="-6.5" y="-21" width="6" height="22" rx="3"/><rect x="0" y="-22" width="6" height="23" rx="3"/><rect x="6.5" y="-18" width="6" height="19" rx="3"/><rect x="10" y="-4" width="7" height="17" rx="3.5" transform="rotate(-38 13 10)"/><rect x="-13" y="-6" width="25.5" height="25" rx="7"/></g></g><g fill="#f5a800"><path d="M0 84 l12 -12 h12 l-12 12 z M24 84 l12 -12 h12 l-12 12 z M48 84 l12 -12 h12 l-12 12 z M72 84 l12 -12 v12 z"/></g></svg>', AD: '<svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><rect width="84" height="84" fill="#1b4433"/><g fill="#b3262e" stroke="#e2b04a" stroke-width="1.5"><rect x="8" y="8" width="20" height="20" rx="3"/><rect x="56" y="32" width="20" height="20" rx="3"/><rect x="32" y="56" width="20" height="20" rx="3"/></g><g fill="#245740" stroke="#3b7a5c" stroke-width="1"><rect x="32" y="8" width="20" height="20" rx="3"/><rect x="56" y="8" width="20" height="20" rx="3"/><rect x="8" y="32" width="20" height="20" rx="3"/><rect x="32" y="32" width="20" height="20" rx="3"/><rect x="8" y="56" width="20" height="20" rx="3"/><rect x="56" y="56" width="20" height="20" rx="3"/></g><g fill="#e2b04a" font-family="Georgia,serif" font-weight="700" font-size="12" text-anchor="middle"><text x="18" y="23">1</text><text x="66" y="47">6</text><text x="42" y="71">8</text></g></svg>', LC: '<svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><rect width="84" height="84" fill="#cfe3ef"/><rect y="70" width="84" height="14" fill="#7fae6a"/><circle cx="24" cy="36" r="18" fill="#4e8f43"/><rect x="21" y="48" width="6" height="24" fill="#6b4a31"/><rect x="55" y="22" width="4" height="50" fill="#8b6a45"/><rect x="46" y="26" width="22" height="3" fill="#4b4f52"/><circle cx="48" cy="24" r="2.2" fill="#1b1f1c"/><circle cx="57" cy="24" r="2.2" fill="#1b1f1c"/><circle cx="66" cy="24" r="2.2" fill="#1b1f1c"/><line x1="33" y1="24" x2="41" y2="34" stroke="#ff7a00" stroke-width="3" stroke-linecap="round"/></svg>', FD: '<svg viewBox="0 0 84 84" width="84" height="84" aria-hidden="true"><rect width="84" height="84" fill="#dfe6cf"/><rect y="68" width="84" height="16" fill="#6f8c40"/><rect x="30" y="4" width="24" height="66" fill="#7d6b56"/><path d="M33 10v56M39 6v62M46 8v58M51 12v54" stroke="#5a4a3a" stroke-width="1.4"/><path d="M28 50q14-8 28 0q-14 5-28 0z" fill="#e8711f"/><path d="M30 58q12-7 24 0q-12 4-24 0z" fill="#f29a2e"/><path d="M29 50q13 3 28 0" stroke="#fde24e" stroke-width="2" fill="none"/><path d="M31 58q11 3 22 0" stroke="#fde24e" stroke-width="2" fill="none"/><circle cx="24" cy="66" r="5" fill="#5a8128"/></svg>' };
+  var today = new Date(), ymd = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  if (/[?&]preview=/.test(location.search)) ymd = location.search.match(/[?&]preview=([0-9-]+)/)[1];
+  var live = GAMES.filter(function (g) { return g.from <= ymd; });
+  function card(g, current) {
+    var href = current ? g.url : g.url + '?view=winner&round=' + g.round;
+    return '<a class="game' + (current ? ' current' : '') + '" href="' + href + '"><div class="art">' + ART[g.art] + '</div><div class="body"><span class="badge">' + g.label + '</span><h3>' + g.title + '</h3><p>' + g.blurb + '</p></div><span class="go">' + (current ? 'Play' : 'See the winner') + '</span></a>';
+  }
+  var specials = SPECIALS.filter(function (g) { return g.from <= ymd && (!g.until || ymd <= g.until); });
+  if (specials.length) document.getElementById('special').innerHTML = '<h2>Special edition</h2>' + specials.map(function (g) {
+    return '<a class="game special" href="' + g.url + '"><div class="art">' + ART[g.art] + '</div><div class="body"><span class="badge">' + g.label + '</span><h3>' + g.title + '</h3><p>' + g.blurb + '</p></div><span class="go">Play</span></a>';
+  }).join('');
+  var cur = live[live.length - 1];
+  document.getElementById('current').innerHTML = cur ? card(cur, true) : '<p class="empty">The first game is coming soon.</p>';
+  var past = live.slice(0, -1).reverse();
+  if (past.length) document.getElementById('past').innerHTML = past.map(function (g) { return card(g, false); }).join('<div style="height:10px"></div>');
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
 </body>
