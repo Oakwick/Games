@@ -1,7 +1,7 @@
 // Oakwick Games service worker: network-first for our own files (so monthly updates
 // show up straight away), with a cached copy for offline/poor signal.
 // Scoreboard calls go to Google (a different origin) and are never cached.
-const CACHE = 'oakwick-2026-12-7';
+const CACHE = 'oakwick-2026-12-8';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/oakwick-logo.png', './icons/oakwick-logo-white.png',
   './games/2026-10-line-clear/', './games/2026-10-line-clear/index.html', './games/2026-10-line-clear/style.css',
@@ -16,7 +16,8 @@ const SHELL = [
   './games/2026-12-advent/advent-art.js', './games/2026-12-advent/app.js'
 ];
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // Each file is saved on its own, so one that is not on the site yet (next month's game) does not stop the rest.
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(SHELL.map((u) => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
