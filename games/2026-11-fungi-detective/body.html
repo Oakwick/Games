@@ -1,0 +1,39 @@
+<div class="app">
+  <header class="bar">
+    <div class="brand"><b>Fungi Detective</b><span>Oakwick Games · November 2026</span></div>
+    <div class="stat"><small>Tree</small><span class="v" id="hudTree">1 / 10</span></div>
+    <div class="stat"><small>Score</small><span class="v" id="hudScore">0</span></div>
+    <span class="co-logo bar-logo" role="img" aria-label="Oakwick Utility Arborists"></span>
+  </header>
+  <main class="main">
+    <section class="scene-wrap" aria-label="The tree">
+      <div class="frame"><svg id="scene" viewBox="0 -4 6 4" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Tree beside an overhead line"></svg><button class="zoombtn" id="btnZoom" type="button" hidden>Zoom in on the line</button></div>
+      <div class="toast" id="toast" role="status"></div>
+    </section>
+    <section class="panel" id="panel" aria-live="polite"></section>
+  </main>
+</div>
+
+<div class="overlay" id="intro">
+  <div class="sheet">
+    <div class="splash-head"><div class="kicker">Oakwick Games · November 2026</div><span class="co-logo" role="img" aria-label="Oakwick Utility Arborists"></span></div>
+    <h1>Fungi Detective</h1>
+    <p>Autumn is when the fungi show themselves. You've ten trees to check before the winter storms, beside 11kV and 33kV pole lines and a 132kV tower line.</p>
+    <ol class="steps">
+      <li><b>Find it.</b> Something is growing on each tree. Tap it on the picture to take a closer look.</li>
+      <li><b>Name it.</b> Pick the fungus from four choices.</li>
+      <li><b>Categorise it.</b> Step back and give the tree its utility category, A to D. Go by the nearest part of the canopy, not the stem, and use the scale bar. The vicinity zone depends on the voltage.</li>
+      <li><b>Decide.</b> Leave it, monitor it, reduce it or fell it. Think about what the fungus does to the tree, and whether the tree can reach the line.</li>
+    </ol>
+    <p class="score-note">Each tree is worth 100 points: 40 for naming the fungus, 20 for the category and 40 for the right action, with half marks for a reasonable second choice. The best possible score is 1000.</p>
+    <p class="score-note">One attempt each. Equal scores are split by the faster time.</p>
+    <div id="introState"></div>
+    <div class="winner-card" id="winnerCard" hidden></div>
+    <div id="introBoard"><h3 class="boardhead">Top 10 · November 2026</h3><ol class="board" id="boardIntro"><li class="muted">Loading…</li></ol></div>
+    <p class="proto demo-only">Demo for testing: scores stay on this device. The answers are simplified for a game; real decisions need a full tree inspection.</p>
+  </div>
+</div>
+
+<div class="overlay" id="results" hidden>
+  <div class="sheet" id="resultsBody"></div>
+</div>
